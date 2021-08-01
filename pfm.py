@@ -96,7 +96,9 @@ class LogProcessor:
         ip_address = self.get_ip_address_from_current_line()
 
         if ip_address in whitelist:
-            self.print("Ignoring whitelisted address: {:s} ({:s})".format(ip_address, reason))
+            self.print(
+                "Ignoring whitelisted address: {:s} ({:s})".format(ip_address, reason)
+            )
             return
 
         self.blocked_addr.setdefault(ip_address, 0)
