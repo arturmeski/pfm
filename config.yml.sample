@@ -1,0 +1,38 @@
+whitelist: []
+logfile: "/var/log/postfix.log"
+pfmlog: "pfm.log"
+process_all: True
+
+rules: 
+- trigger: "reject: RCPT from unknown"
+  grace: 5
+  comment: "rejected RCPT from UNKNOWN"
+
+- trigger: "from=<spameri@tiscali.it> to=<spameri@tiscali.it>"
+  grace: 1
+  comment: "spameri@tiscali.it"
+
+- trigger: "warning: Connection rate limit exceeded"
+  grace: 3 
+  comment: "Connection rate"
+
+- trigger: "SASL LOGIN authentication failed"
+  grace: 3
+  comment: "SASL AUTH attack"
+
+- trigger: "BARE NEWLINE"
+  grace: 1
+  comment: "BARE NEWLINE"
+
+- trigger: "warning: non-SMTP command from"
+  grace: 1
+  comment: "non-SMTP"
+
+- trigger: "lost connection after AUTH from"
+  grace: 3
+  comment: "Bruteforce attack"
+
+- trigger: "PREGREET "
+  grace: 3
+  comment: "Protocol ignored"
+
