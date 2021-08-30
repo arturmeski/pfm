@@ -1,0 +1,2 @@
+whitelist: []
+logfile: "/var/log/postfix.log"

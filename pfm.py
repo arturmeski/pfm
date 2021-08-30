@@ -3,10 +3,27 @@
 import time
 import re
 import subprocess
+import yaml
 
-logfile = "/var/log/postfix.log"
 
-whitelist = ["137.220.69.105"]
+class Configuration:
+    def __init__(self):
+        self.conf = None
+
+    @property
+    def logfile(self):
+        return self.conf["logfile"]
+
+    @property
+    def whitelist(self):
+        return self.conf["whitelist"]
+
+    def read_from_file(self, filepath):
+        with open(filepath, "r") as stream:
+            try:
+                self.conf = yaml.safe_load(stream)
+            except yaml.YAMLError as e:
+                print(e)
 
 
 class Blocker:
@@ -16,11 +33,11 @@ class Blocker:
 
     def block(self, address):
         print("BLOCK", address)
-        subprocess.call(["pfctl", "-t", self.pf_table, "-T", "add", address])
+        subprocess.call(["doas", "pfctl", "-t", self.pf_table, "-T", "add", address])
 
     def expire(self):
         if self.expire_counter % 100 == 0:
-            subprocess.call(["pfctl", "-t", self.pf_table, "-T", "expire", "86400"])
+            subprocess.call(["doas", "pfctl", "-t", self.pf_table, "-T", "expire", "86400"])
         self.expire_counter += 1
 
 
@@ -29,8 +46,9 @@ class LogProcessor:
 	Postfix Log Processing
 	"""
 
-    def __init__(self, logfile, blocker, process_all=False):
-        self.logfile = logfile
+    def __init__(self, config, blocker, process_all=False):
+        self.logfile = config.logfile
+        self.config = config
         self.blocker = blocker
         self.process_all = process_all
 
@@ -43,7 +61,7 @@ class LogProcessor:
         self.blocked_addr = dict()
 
     def open_logfile(self):
-        self.filehandle = open(logfile, "r")
+        self.filehandle = open(self.logfile, "r")
         self.skipping = True
 
     def monitor(self):
@@ -95,7 +113,7 @@ class LogProcessor:
     def block(self, grace=5, reason="Unspecified"):
         ip_address = self.get_ip_address_from_current_line()
 
-        if ip_address in whitelist:
+        if ip_address in self.config.whitelist:
             self.print(
                 "Ignoring whitelisted address: {:s} ({:s})".format(ip_address, reason)
             )
@@ -138,15 +156,16 @@ class LogProcessor:
         if "lost connection after AUTH from" in self.line:
             self.block(grace=3, reason="Bruteforce attack")
 
-        if "PREGREET 11 after " in self.line:
+        if "PREGREET " in self.line:
             self.block(grace=3, reason="Protocol ignored")
 
 
 def main():
-    """
-	MAIN
-	"""
-    proc = LogProcessor(logfile, Blocker("spammers"), process_all=True)
+    """MAIN"""
+    cfg = Configuration()
+    cfg.read_from_file("config.yml")
+
+    proc = LogProcessor(cfg, Blocker("spammers"), process_all=True)
     proc.monitor()
 
 
