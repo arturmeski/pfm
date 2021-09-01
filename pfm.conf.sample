@@ -1,7 +1,6 @@
 whitelist: []
 logfile: "/var/log/postfix.log"
-pfm_log: "pfm.log"
-process_all: False
+pfm_log_file: "pfm.log"
 pf_table: "spammers"
 
 rules: 

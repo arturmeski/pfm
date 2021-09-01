@@ -21,22 +21,23 @@ class Configuration:
         self.conf = {
             "pfm_pid_file": "pfm.pid",
             "pfm_home_dir": "/var/pfm",
-            "logfile": "pfm.log",
+            "pfm_log_file": "pfm.log",
+            "log_file": "pfm.log",
             "pf_table": "spammers",
             "process_all": False,
         }
 
     @property
-    def logfile(self):
-        return self.conf["logfile"]
+    def log_file(self):
+        return self.conf["log_file"]
 
     @property
     def whitelist(self):
         return self.conf["whitelist"]
 
     @property
-    def pfm_log(self):
-        return self.conf["pfm_log"]
+    def pfm_log_file(self):
+        return self.conf["pfm_log_file"]
 
     @property
     def pfm_db(self):
@@ -108,7 +109,7 @@ class LogProcessor:
 	"""
 
     def __init__(self, config, blocker):
-        self.logfile = config.logfile
+        self.log_file = config.log_file
         self.config = config
         self.blocker = blocker
         self.process_all = config.process_all
@@ -122,12 +123,12 @@ class LogProcessor:
 
         self.blocked_addr = dict()
 
-    def open_logfile(self):
-        self.filehandle = open(self.logfile, "r")
+    def open_log_file(self):
+        self.filehandle = open(self.log_file, "r")
         self.skipping = True
 
-    def open_pfm_log(self):
-        self.pfm_log_handle = open(self.config.pfm_log, "a")
+    def open_pfm_log_file(self):
+        self.pfm_log_file_handle = open(self.config.pfm_log_file, "a")
 
     def print(self, message):
         print("*--- {:s}".format(message))
@@ -136,7 +137,7 @@ class LogProcessor:
         self.print("STAT: Monitored addresses: {:d}".format(len(self.blocked_addr)))
 
     def log_write(self, message):
-        self.pfm_log_handle.write(
+        self.pfm_log_file_handle.write(
             "{!s}: {:s}\n".format(datetime.now(), message.strip())
         )
 
@@ -144,8 +145,8 @@ class LogProcessor:
         """
         The main monitoring loop
 		"""
-        self.open_logfile()
-        self.open_pfm_log()
+        self.open_log_file()
+        self.open_pfm_log_file()
 
         self.log_write("PFM started, pid={:d}".format(os.getpid()))
 
@@ -156,10 +157,10 @@ class LogProcessor:
             if self.line:
                 self.line = self.line.strip()
 
-            if not self.skipping and "logfile turned over" in self.line:
-                self.log_write("Logfile turned over, reopening log file")
+            if not self.skipping and "log file turned over" in self.line:
+                self.log_write("Log file turned over, reopening log file")
                 time.sleep(1.5)
-                self.open_logfile()
+                self.open_log_file()
 
             if (not self.skipping or self.process_all) and self.line:
                 self.handle_line()
