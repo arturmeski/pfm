@@ -22,7 +22,7 @@ class Configuration:
             "pfm_pid_file": "pfm.pid",
             "pfm_home_dir": "/var/pfm",
             "pfm_log_file": "pfm.log",
-            "log_file": "pfm.log",
+            "log_file": "/var/log/postfix.log",
             "pf_table": "spammers",
             "process_all": False,
         }

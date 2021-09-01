@@ -1,5 +1,5 @@
 whitelist: []
-logfile: "/var/log/postfix.log"
+log_file: "/var/log/postfix.log"
 pfm_log_file: "pfm.log"
 pf_table: "spammers"
 
