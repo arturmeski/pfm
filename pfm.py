@@ -85,6 +85,7 @@ class LogProcessor:
         self.number_of_last_lines = 20
 
         self.ip4_addr_pattern = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})")
+        self.ip6_addr_pattern = re.compile(r"\[([0-9a-f:]+:[0-9a-f]{1,4})\]")
 
         self.blocked_addr = dict()
 
@@ -125,10 +126,23 @@ class LogProcessor:
         self.check_entry()
 
     def get_ip_address_from_current_line(self, occurence=0):
+        """
+        Tries to find an IP address in self.line
+
+        For IPv6 we only attempt to find most of the IP addresses
+        that appear inside of square brackets
+        """
         try:
             res = self.ip4_addr_pattern.findall(self.line)[occurence]
         except IndexError:
             res = None
+
+        if res is None:
+            # try finding an IPv6 address
+            try:
+                res = self.ip6_addr_pattern.findall(self.line)[occurence]
+            except IndexError:
+                res = None
 
         return res
 
