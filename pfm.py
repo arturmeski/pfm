@@ -128,7 +128,7 @@ class LogProcessor:
         self.skipping = True
 
     def open_pfm_log_file(self):
-        self.pfm_log_file_handle = open(self.config.pfm_log_file, "a")
+        self.pfm_log_file_handle = open(self.config.pfm_log_file, "a", buffering=1)
 
     def print(self, message):
         print("*--- {:s}".format(message))
