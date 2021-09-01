@@ -1,7 +1,8 @@
 whitelist: []
 logfile: "/var/log/postfix.log"
-pfmlog: "pfm.log"
-process_all: True
+pfm_log: "pfm.log"
+process_all: False
+pf_table: "spammers"
 
 rules: 
 - trigger: "reject: RCPT from unknown"

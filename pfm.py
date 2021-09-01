@@ -5,6 +5,10 @@ import re
 import subprocess
 import yaml
 import sys
+import os
+from datetime import datetime
+from daemonize import Daemonize
+from argparse import ArgumentParser
 
 
 class Configuration:
@@ -13,7 +17,14 @@ class Configuration:
     """
 
     def __init__(self):
-        self.conf = None
+        # Defaults:
+        self.conf = {
+            "pfm_pid_file": "pfm.pid",
+            "pfm_home_dir": "/var/pfm",
+            "logfile": "pfm.log",
+            "pf_table": "spammers",
+            "process_all": False,
+        }
 
     @property
     def logfile(self):
@@ -24,12 +35,34 @@ class Configuration:
         return self.conf["whitelist"]
 
     @property
-    def pfmlog(self):
-        return self.conf["pfmlog"]
+    def pfm_log(self):
+        return self.conf["pfm_log"]
+
+    @property
+    def pfm_db(self):
+        return self.conf["pfm_db"]
+
+    @property
+    def pfm_home_dir(self):
+        return self.conf["pfm_home_dir"]
+
+    @property
+    def pfm_pid_file(self):
+        pid_file = self.conf["pfm_pid_file"]
+        if pid_file.startswith("/"):
+            return pid_file
+        else:
+            return os.path.join(self.pfm_home_dir, pid_file)
+
+        return self.conf["pfm_pid_file"]
 
     @property
     def process_all(self):
         return self.conf["process_all"]
+
+    @property
+    def pf_table(self):
+        return self.conf["pf_table"]
 
     @property
     def rules(self):
@@ -38,7 +71,7 @@ class Configuration:
     def read_from_file(self, filepath):
         with open(filepath, "r") as stream:
             try:
-                self.conf = yaml.safe_load(stream)
+                self.conf.update(yaml.safe_load(stream))
             except yaml.YAMLError as e:
                 print("config file error: {!s}".format(e))
                 sys.exit(1)
@@ -93,18 +126,38 @@ class LogProcessor:
         self.filehandle = open(self.logfile, "r")
         self.skipping = True
 
+    def open_pfm_log(self):
+        self.pfm_log_handle = open(self.config.pfm_log, "a")
+
+    def print(self, message):
+        print("*--- {:s}".format(message))
+
+    def print_stat(self):
+        self.print("STAT: Monitored addresses: {:d}".format(len(self.blocked_addr)))
+
+    def log_write(self, message):
+        self.pfm_log_handle.write(
+            "{!s}: {:s}\n".format(datetime.now(), message.strip())
+        )
+
     def monitor(self):
         """
         The main monitoring loop
 		"""
         self.open_logfile()
+        self.open_pfm_log()
+
+        self.log_write("PFM started, pid={:d}".format(os.getpid()))
 
         while True:
 
             self.line = self.filehandle.readline()
 
+            if self.line:
+                self.line = self.line.strip()
+
             if not self.skipping and "logfile turned over" in self.line:
-                self.print("Reopening log file")
+                self.log_write("Logfile turned over, reopening log file")
                 time.sleep(1.5)
                 self.open_logfile()
 
@@ -146,21 +199,15 @@ class LogProcessor:
 
         return res
 
-    def print(self, message):
-        print("*--- {:s}".format(message))
-
-    def print_stat(self):
-        self.print("STAT: Monitored addresses: {:d}".format(len(self.blocked_addr)))
-
     def block(self, grace=5, reason="Unspecified"):
         ip_address = self.get_ip_address_from_current_line()
 
         if ip_address is None:
-            self.print("NO IP ADDRESS EXTRACTED FROM: {:s}".format(self.line))
+            self.log_write("NO IP ADDRESS EXTRACTED FROM: {:s}".format(self.line))
             return
 
         if ip_address in self.config.whitelist:
-            self.print(
+            self.log_write(
                 "Ignoring whitelisted address: {!s} ({!s})".format(ip_address, reason)
             )
             return
@@ -169,11 +216,12 @@ class LogProcessor:
         self.blocked_addr[ip_address] += 1
 
         if self.blocked_addr[ip_address] >= grace:
-            self.print("BLOCKING: {!s} ** {!s}".format(ip_address, reason))
+            log_msg = "Blocking: address={!s} reason={!s}".format(ip_address, reason)
+            self.log_write("{:s} (line: {:s})".format(log_msg, self.line))
             self.blocker.block(ip_address)
         else:
-            self.print(
-                "GRACE: {!s} ** {!s} ({:d})".format(
+            self.log_write(
+                "Triggered: {!s} ** {!s} ({:d})".format(
                     ip_address, reason, self.blocked_addr[ip_address]
                 )
             )
@@ -186,15 +234,48 @@ class LogProcessor:
                 self.block(grace=rule["grace"], reason=rule["comment"])
 
 
+def pfm_main():
+    global cfg
+    proc = LogProcessor(cfg, PFBlocker(cfg.pf_table))
+    proc.monitor()
+
+
 def main():
     """
     MAIN
     """
-    cfg = Configuration()
-    cfg.read_from_file("config.yml")
+    parser = ArgumentParser()
+    parser.add_argument(
+        "--foreground", "-F", action="store_true", help="run in foreground"
+    )
+    parser.add_argument(
+        "--config",
+        "-c",
+        action="store",
+        help="configuration file",
+        default="./pfm.conf",
+    )
+    parser.add_argument(
+        "--process-all", "-a", action="store_true", help="process the entire log file"
+    )
+    args = parser.parse_args()
 
-    proc = LogProcessor(cfg, PFBlocker("spammers"))
-    proc.monitor()
+    global cfg
+    cfg = Configuration()
+    cfg.read_from_file(args.config)
+
+    if args.process_all:
+        # Overwrite the config file value
+        cfg.conf["process_all"] = True
+
+    if not args.foreground:
+        daemon = Daemonize(
+            app="pfm", pid=cfg.pfm_pid_file, action=pfm_main, chdir=cfg.pfm_home_dir
+        )
+        daemon.start()
+    else:
+        os.chdir(cfg.pfm_home_dir)
+        pfm_main()
 
 
 if __name__ == "__main__":
