@@ -217,13 +217,20 @@ class LogProcessor:
         self.blocked_addr[ip_address] += 1
 
         if self.blocked_addr[ip_address] >= grace:
-            log_msg = "Blocking: address={!s} reason={!s}".format(ip_address, reason)
-            self.log_write("{:s} (line: {:s})".format(log_msg, self.line))
+            log_msg = "Blocking: address={addr!s} reason={reason!s}".format(
+                addr=ip_address, reason=reason
+            )
+            self.log_write(
+                "{msg:s} (line: {line:s})".format(msg=log_msg, line=self.line)
+            )
             self.blocker.block(ip_address)
         else:
             self.log_write(
-                "Triggered: {!s} ** {!s} ({:d})".format(
-                    ip_address, reason, self.blocked_addr[ip_address]
+                "Triggered: address={addr!s} reason={reason!s} (count={count:d}) (line: {line:s})".format(
+                    addr=ip_address,
+                    reason=reason,
+                    count=self.blocked_addr[ip_address],
+                    line=self.line,
                 )
             )
 
