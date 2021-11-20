@@ -26,7 +26,7 @@ class Configuration:
             "log_file": "/var/log/postfix.log",
             "pf_table": "spammers",
             "process_all": False,
-            "wait_count": 20,
+            "wait_count": 40,
         }
 
     @property
