@@ -6,6 +6,7 @@ import subprocess
 import yaml
 import sys
 import os
+import signal
 from datetime import datetime
 from daemonize import Daemonize
 from argparse import ArgumentParser
@@ -25,6 +26,7 @@ class Configuration:
             "log_file": "/var/log/postfix.log",
             "pf_table": "spammers",
             "process_all": False,
+            "wait_count": 20,
         }
 
     @property
@@ -60,6 +62,10 @@ class Configuration:
     @property
     def process_all(self):
         return self.conf["process_all"]
+
+    @property
+    def wait_count(self):
+        return self.conf["wait_count"]
 
     @property
     def pf_table(self):
@@ -123,6 +129,23 @@ class LogProcessor:
 
         self.blocked_addr = dict()
 
+        self.pfm_log_file_handle = None
+
+        self.install_signal_handler()
+
+    def install_signal_handler(self):
+        signal.signal(signal.SIGHUP, self.signal_handler)
+
+    def signal_handler(self, signum, frame):
+        if self.pfm_log_file_handle:
+            self.log_write("Signal received: {!s}".format(signum))
+            self.reopen_log_file()
+
+    def reopen_log_file(self):
+        self.filehandle = open(self.log_file, "r")
+        self.read_fail_count = 0
+        self.skipping = True
+
     def open_log_file(self):
         self.filehandle = open(self.log_file, "r")
         self.skipping = True
@@ -150,6 +173,8 @@ class LogProcessor:
 
         self.log_write("PFM started, pid={:d}".format(os.getpid()))
 
+        self.read_fail_count = 0
+
         while True:
 
             self.line = self.filehandle.readline()
@@ -160,14 +185,17 @@ class LogProcessor:
             if not self.skipping and "log file turned over" in self.line:
                 self.log_write("Log file turned over, reopening log file")
                 time.sleep(1.5)
-                self.open_log_file()
+                self.reopen_log_file()
 
             if (not self.skipping or self.process_all) and self.line:
                 self.handle_line()
 
             if not self.line:
                 self.skipping = False
-                time.sleep(0.3)
+                self.read_fail_count += 1
+                if self.read_fail_count > self.config.wait_count:
+                    self.reopen_log_file()
+                time.sleep(0.5)
 
     def handle_line(self):
         if not self.skipping:
