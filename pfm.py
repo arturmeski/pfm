@@ -207,7 +207,7 @@ class LogProcessor:
 
         self.check_entry()
 
-    def get_ip_address_from_current_line(self, occurence=0):
+    def get_ip_address_from_current_line(self, occurrence=0):
         """
         Tries to find an IP address in self.line
 
@@ -215,14 +215,14 @@ class LogProcessor:
         that appear inside of square brackets
         """
         try:
-            res = self.ip4_addr_pattern.findall(self.line)[occurence]
+            res = self.ip4_addr_pattern.findall(self.line)[occurrence]
         except IndexError:
             res = None
 
         if res is None:
             # try finding an IPv6 address
             try:
-                res = self.ip6_addr_pattern.findall(self.line)[occurence]
+                res = self.ip6_addr_pattern.findall(self.line)[occurrence]
             except IndexError:
                 res = None
 
