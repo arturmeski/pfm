@@ -7,6 +7,7 @@ import yaml
 import sys
 import os
 import signal
+import syslog
 from datetime import datetime
 from daemonize import Daemonize
 from argparse import ArgumentParser
@@ -153,6 +154,9 @@ class LogProcessor:
     def open_pfm_log_file(self):
         self.pfm_log_file_handle = open(self.config.pfm_log_file, "a", buffering=1)
 
+    def init_syslog(self):
+        syslog.openlog(ident="pfm", facility=syslog.LOG_MAIL)
+
     def print(self, message):
         print("*--- {:s}".format(message))
 
@@ -163,6 +167,7 @@ class LogProcessor:
         self.pfm_log_file_handle.write(
             "{!s}: {:s}\n".format(datetime.now(), message.strip())
         )
+        syslog.syslog(message.strip())
 
     def monitor(self):
         """
@@ -170,6 +175,7 @@ class LogProcessor:
 		"""
         self.open_log_file()
         self.open_pfm_log_file()
+        self.init_syslog()
 
         self.log_write("PFM started, pid={:d}".format(os.getpid()))
 
