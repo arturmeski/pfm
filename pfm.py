@@ -112,8 +112,8 @@ class PFBlocker(Blocker):
 
 class LogProcessor:
     """
-	Postfix Log Processing
-	"""
+    Postfix Log Processing
+    """
 
     def __init__(self, config, blocker):
         self.log_file = config.log_file
@@ -172,7 +172,7 @@ class LogProcessor:
     def monitor(self):
         """
         The main monitoring loop
-		"""
+        """
         self.open_log_file()
         self.open_pfm_log_file()
         self.init_syslog()
